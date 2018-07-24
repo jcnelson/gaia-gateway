@@ -1,0 +1,60 @@
+{
+  "name": "gaia-gateway",
+  "version": "0.0.1",
+  "description": "Gateway for sharing data stored in the Gaia storage system",
+  "main": "lib/index.js",
+  "scripts": {
+    "browserify": "mkdir -p ./dist && ./node_modules/.bin/browserify lib/index.js --standalone gaia-gateway -o ./dist/gaia-gateway.js",
+    "browserify-tests": "./node_modules/.bin/browserify lib/index.js --standalone gaia-gateway -o ./tests/browserTests/bundle.js",
+    "compile": "rm -rf lib; babel src -d lib",
+    "compile-tests": "rm -rf tests/unitTests/lib; babel tests/unitTests/src -d tests/unitTests/lib;",
+    "prepublish": "npm run build",
+    "unit-test": "npm run flow && npm run compile && npm run compile-tests && npm run browserify && node ./tests/unitTests/lib/index.js",
+    "build": "npm run flow && npm run compile && npm run browserify",
+    "flow": "flow || true",
+    "test": "nyc --reporter=text npm run unit-test"
+  },
+  "bin": {
+    "gaia-gateway": "lib/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jcnelson/gaia-gateway.git"
+  },
+  "keywords": [
+    "decentralized",
+    "storage"
+  ],
+  "author": "Jude Nelson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jcnelson/gaia-gateway/issues"
+  },
+  "dependencies": {
+    "ajv": "^6.5.2",
+    "blockstack": "^18.0.0",
+    "body-parser": "^1.18.1",
+    "browserify": "^16.2.2",
+    "cors": "^2.8.4",
+    "cross-fetch": "^2.0.0",
+    "express": "^4.15.4",
+    "express-winston": "^2.4.0",
+    "jsontokens": "^0.7.8",
+    "npm": "^6.1.0",
+    "winston": "^2.3.1"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-flow": "^6.23.0",
+    "bluebird": "^3.5.1",
+    "fetch-mock": "^6.4.2",
+    "flow-bin": "^0.71.0",
+    "nock": "^9.1.9",
+    "nyc": "^13.0.0",
+    "proxyquire": "^2.0.1",
+    "supertest": "^3.0.0",
+    "tape": "^4.9.0"
+  },
+  "homepage": "https://github.com/jcnelson/gaia-gateway#readme"
+}
