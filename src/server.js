@@ -26,6 +26,10 @@ const schemas = {
 function getProfileApps(blockstackID: string) : Promise<Object> {
   return blockstack.lookupProfile(blockstackID)
     .then((profile) => {
+      if (!profile) {
+        throw new GaiaGatewayException(`No profile loaded for ${blockstackID}`, 404)
+      }
+
       if (!profile.apps) {
         throw new GaiaGatewayException(`No apps for ${blockstackID}`, 404)
       }
@@ -47,6 +51,9 @@ function getProfileApps(blockstackID: string) : Promise<Object> {
       }
 
       return profile.apps
+    })
+    .catch((e) => {
+      throw new GaiaGatewayException(`Failed to load profile for ${blockstackID}`, 404)
     })
 }
 
@@ -93,6 +100,12 @@ export class GaiaGateway {
             verify: false,
             username: blockstackID,
             app: appOrigin })
+          .then((fileData) => {
+            if (fileData === null) {
+              throw new GaiaGatewayException('No such file', 404)
+            }
+            return fileData
+          })
       })
   }
 
