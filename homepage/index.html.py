@@ -71,7 +71,7 @@ def submit(value, **kw):
     return '<button type="submit" {}>{}</button>'.format(kwstr, value)
 
 
-hostname = 'gateway.gaia-storage.com'
+hostname = 'gaia-gateway.com'
 
 gaia_gateway_homepage = \
     div(
