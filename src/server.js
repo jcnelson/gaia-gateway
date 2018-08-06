@@ -19,44 +19,9 @@ const schemas = {
   }
 }
 
-/*
- * Get a name's profile's apps.
- * Verify that they are well-formed
- */
-function getProfileApps(blockstackID: string) : Promise<Object> {
-  return blockstack.lookupProfile(blockstackID)
-    .then((profile) => {
-      if (!profile) {
-        throw new GaiaGatewayException(`No profile loaded for ${blockstackID}`, 404)
-      }
+const DEFAULT_GAIA_HUB_PREFIX = "https://gaia.blockstack.org/hub"
 
-      if (!profile.apps) {
-        throw new GaiaGatewayException(`No apps for ${blockstackID}`, 404)
-      }
-
-      if (!(profile.apps instanceof Object)) {
-        throw new GaiaGatewayException(`No apps for ${blockstackID}`, 404)
-      }
-      
-      const appOriginUrls = Object.keys(profile.apps)
-      if (appOriginUrls.length > 16384) {
-        // arbitrary length, but it shouldn't be so big
-        throw new GaiaGatewayException(`Too many apps for ${blockstackID}`, 404)
-      }
-
-      const a = Ajv()
-      const validApps = a.validate(schemas.appList, profile.apps)
-      if (!validApps) {
-        throw new GaiaGatewayException(`Invalid app data for ${blockstackID}`, 404)
-      }
-
-      return profile.apps
-    })
-    .catch((e) => {
-      throw new GaiaGatewayException(`Failed to load profile for ${blockstackID}`, 404)
-    })
-}
-
+// Exception class that carries an HTTP status code
 export class GaiaGatewayException extends Error {
   statuscode: number
 
@@ -66,14 +31,107 @@ export class GaiaGatewayException extends Error {
   }
 }
 
+/*
+ * Get the apps from a profile object.
+ * Verify that they are well-formed.
+ * Returns a Promise that resolves to the apps dict
+ * Throws a GaiaGatewayException if the profile could not be fetched or is malformed
+ */
+function getAppsFromProfile(blockstackID: string, profile: Object): Promise<Object> {
+  return Promise.resolve().then(() => {
+    if (!profile) {
+      throw new GaiaGatewayException(`No profile loaded for ${blockstackID}`, 404)
+    }
+
+    if (!profile.apps) {
+      return {}
+    }
+
+    if (!(profile.apps instanceof Object)) {
+      throw new GaiaGatewayException(`No apps for ${blockstackID}`, 404)
+    }
+    
+    const appOriginUrls = Object.keys(profile.apps)
+    if (appOriginUrls.length > 16384) {
+      // arbitrary length, but it shouldn't be so big
+      throw new GaiaGatewayException(`Too many apps for ${blockstackID}`, 404)
+    }
+
+    const a = Ajv()
+    const validApps = a.validate(schemas.appList, profile.apps)
+    if (!validApps) {
+      throw new GaiaGatewayException(`Invalid app data for ${blockstackID}`, 404)
+    }
+
+    return profile.apps
+  })
+  .catch((e) => {
+    console.log(e)
+    throw new GaiaGatewayException(`Failed to load profile for ${blockstackID}`, 404)
+  })
+}
+
+/*
+ * Get a BNS name's profile's apps.
+ * Verify that they are well-formed
+ */
+function getBNSProfileApps(blockstackID: string) : Promise<Object> {
+  return blockstack.lookupProfile(blockstackID)
+    .catch((e) => { 
+      throw new GaiaGatewayException(`Failed to load profile for ${blockstackID}`, 404)
+    })
+    .then((profile) => getAppsFromProfile(blockstackID, profile))
+}
+
+/*
+ * Get an ID-address's profile's apps.
+ * Verify that they are well-formed
+ */
+function getIDAddressProfileApps(idAddress: string, gaiaHubReadPrefix?: string): Promise<Object> {
+  if (!gaiaHubReadPrefix) {
+    // default 
+    gaiaHubReadPrefix = DEFAULT_GAIA_HUB_PREFIX
+  }
+  
+  const profileUrl = `${gaiaHubReadPrefix.replace(/\/+$/g, '')}/profile.json`
+  const legacyProfileUrl = `${gaiaHubReadPrefix.replace(/\/+$/g, '')}/0/profile.json`
+
+  let tryLegacy = false
+
+  function urlToProfile(url: string) : Promise<Object> {
+    return fetch(url)
+      .then((resp) => {
+        if (resp.status !== 200) {
+          throw new Error('Not found')
+        }
+        return resp.json()
+      })
+      .then((profileJSON) => {
+        return getAppsFromProfile(idAddress, profileJSON)
+      })
+  }
+  
+  return urlToProfile(profileUrl)
+    .catch((e) => {
+      if (e.message === 'Not found') {
+        return urlToProfile(legacyProfileUrl)
+          .catch((eLegacy) => {
+            throw new GaiaGatewayException(`No profile.json file found`, 404)
+          })
+      }
+      else {
+        throw new GaiaGatewayException(`No profile.json file found`, 404)
+      }
+    })
+}
+
 export class GaiaGateway {
 
   constructor(config: Object) {
   }
 
   handleGetFile(blockstackID: string, originHost: string, filename: string): Promise<*> {
-    const nameLookupUrl = `${network.blockstackAPIUrl}/v1/names/`
-    return getProfileApps(blockstackID)
+    return getBNSProfileApps(blockstackID)
       .then((apps) => {
         const possibleAppOrigins = [
           `http://${originHost}`,
@@ -110,6 +168,6 @@ export class GaiaGateway {
   }
 
   handleGetApps(blockstackID: string): Promise<*> {
-    return getProfileApps(blockstackID)
+    return getBNSProfileApps(blockstackID)
   }
 }
